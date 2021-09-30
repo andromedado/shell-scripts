@@ -1,0 +1,157 @@
+#!/usr/bin/env node
+/**
+ * justthis
+ * Command line util to deploy a maven project to local tomcat
+ * Usage: `justthis` from within a maven project root
+ * Requirements:
+ *  CATALINA_HOME configured
+ *  NodeJS v14+
+ *  Maven installed
+ */
+
+const fs = require('fs');
+const childProcess = require('child_process');
+
+const fatal = (error) => {
+    console.error(error);
+    process.exit(1);
+}
+
+const info = (what) => {
+    console.log(` - ${what}`);
+};
+
+const finished = (what) => {
+    console.log(what);
+    console.log(` - finished @ ${new Date()}`);
+    process.exit(0);
+};
+
+const stdoutWrite = (what) => {
+    what = what + '';
+    while (what.length < process.stdout.columns) {
+        what = `${what} `;
+    }
+    process.stdout.write(`\r${what}`);
+}
+
+const currentDir = process.env.PWD;
+const pomFound = fs.existsSync(`${currentDir}/pom.xml`);
+
+if (!pomFound) {
+    fatal('No pom found');
+}
+
+const catalinaHome = process.env.CATALINA_HOME;
+if (!catalinaHome) {
+    fatal('CATALINA_HOME undefined');
+}
+
+const webappsDir = `${catalinaHome}/webapps`;
+
+let tomcatRunning = false;
+try {
+    childProcess.execSync(`ps ax | grep 'tomca[t]'`);
+    tomcatRunning = true;
+} catch (e) {
+    // no tomcat running
+    info('Tomcat is not running');
+}
+if (tomcatRunning) {
+    info('Stopping tomcat');
+    childProcess.execSync(`${catalinaHome}/bin/shutdown.sh`);
+    childProcess.execSync(`ps -eaf | grep 'tomca[t]' | awk '{print "kill -9 " $2}' | sh`);
+}
+
+const files = fs.readdirSync(webappsDir).filter(f => !(/\.\./.test(f)));
+
+filesMap = {};
+files.forEach(f => filesMap[f] = true)
+
+const filesToDelete = [];
+const dirsToDelete = [];
+const warEnding = /\.war$/;
+files.forEach(file => {
+    if (warEnding.test(file)) {
+        filesToDelete.push(file);
+        const dir = file.replace(warEnding, '');
+        if (filesMap[dir]) {
+            dirsToDelete.push(dir);
+        }
+    }
+});
+
+filesToDelete.forEach(f => {
+    info(`Removing ${f}`);
+    fs.unlinkSync(`${webappsDir}/${f}`)
+});
+dirsToDelete.forEach(dir => {
+    info(`Removing ${dir}`);
+    fs.rmdirSync(`${webappsDir}/${dir}`, {recursive: true});
+});
+
+info('Building war');
+const buildProcess = childProcess.exec(`mvn clean -U package -DskipTests`, (err, stdout, stderr) => {
+    if (err) {
+        fatal(err);
+    }
+    if (stderr) {
+        console.error('stderr');
+        console.error(stderr);
+    }
+});
+
+const buildBuffer = [];
+buildProcess.stdout.on('data', (datum) => {
+    datum
+        .replace(/\r/, '\n')
+        .split('\n')
+        .map(d => d.trim().substr(0, process.stdout.columns).trim())
+        .filter(d => !!d)
+        .forEach(output => {
+            buildBuffer.push(output);
+            while (buildBuffer.length > 25) {
+                buildBuffer.shift();
+            }
+            stdoutWrite(output);
+        });
+});
+
+buildProcess.on('exit', (code, signal) => {
+    if (code + '' !== '0') {
+        console.log('');
+        console.log(buildBuffer.join('\n'));
+        fatal('Unable to build');
+    }
+    stdoutWrite(' Build Success');
+    console.log('');
+
+    const targetDir = `${currentDir}/target`;
+    const wars = fs.readdirSync(targetDir).filter(f => warEnding.test(f));
+    if (!wars.length) {
+        fatal(`No war found in ${targetDir}`);
+    }
+    
+    wars.forEach(war => {
+        info(`Deploying ${war}`);
+        fs.copyFileSync(`${targetDir}/${war}`, `${webappsDir}/${war}`);
+    });
+    
+    info(`Starting tomcat`);
+    childProcess.execSync(`${catalinaHome}/bin/startup.sh`);
+    
+    const serviceWar = wars.filter(war => /-[0-9]\.war$/.test(war))[0];
+    
+    if (serviceWar) {
+        const warName = serviceWar.split('.war')[0];
+        setTimeout(() => {
+            childProcess.execSync(`open 'http://127.0.0.1:8080/${warName}/1/health.json'`);
+            finished('DONE');
+        }, 1000);
+    } else {
+        finished('DONE');
+    }
+});
+
+
+

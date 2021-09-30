@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+
+/**
+ * senv
+ * NodeJS Utility to set your consul environment
+ * Usage:
+ *  senv
+ *   - Tells you what environment you are currently configured to use
+ *  senv qa
+ *   - Switch environment to qa
+ *  senv contemporary
+ *   - Switch environment to contemporary
+ * Requirements:
+ *  NodeJS v12+
+ *  CATALINA_HOME configured properly in your environment
+ *  -Dconfig.bucket and -Dhost.key already added to your tomcat startup.sh
+ * Author: Shad Downey <shad@1stdibs.com>
+ */
+
+const fs = require('fs');
+const fatal = function (message) {
+  console.error(message);
+  process.exit(1);
+};
+
+const done = function (message) {
+  console.log(message);
+  process.exit(0);
+}
+
+if (!process.env.CATALINA_HOME) {
+  fatal('You must have $CATALINA_HOME in your environment');
+}
+
+if (!fs.existsSync(process.env.CATALINA_HOME)) {
+  fatal(`CATALINA_HOME (${process.env.CATALINA_HOME}) does not exist`);
+}
+
+const startupFile = `${process.env.CATALINA_HOME}/bin/startup.sh`;
+
+if (!fs.existsSync(startupFile)) {
+  fatal(`Statup file not found: ${startupFile}`);
+}
+
+const [node, script, switchTo] = process.argv;
+
+const special = {
+  qa: {ENV: 'qabe01', KEY: 'qa'},
+  mario: {ENV: 'uat_buyer', KEY: 'mario'},
+  luigi: {ENV: 'uat_buyer', KEY: 'luigi'}
+};
+
+fs.promises.readFile(startupFile, {encoding: 'utf8'}).then(startup => {
+  if (!switchTo) {
+     //Just tell them what we're currently set to
+     startup.split('\n').forEach(line => {
+      if (/^TOMCAT_KEY=(.*)/.test(line)) {
+        done(`Current Env: ${RegExp.$1}`);
+      } else if (/\-Dhost.key=([^\$\s]+)/.test(line)) {
+        done(`Current Env: ${RegExp.$1}`);
+      }
+     });
+     console.log(startup);
+     fatal('Unable to deterine env');
+  }
+  let key = switchTo;
+  let env = switchTo;
+  if (special[switchTo]) {
+    key = special[switchTo].KEY;
+    env = special[switchTo].ENV;
+  }
+  const switched = startup
+    .replace(/TOMCAT_KEY=.*/g, `TOMCAT_KEY=${key}`)
+    .replace(/TOMCAT_ENV=.*/g, `TOMCAT_ENV=${env}`)
+    .replace(/\-Dconfig.bucket=([^\$\s]+)/, `-Dconfig.bucket=${env}`)
+    .replace(/\-Dhost.key=([^\$\s]+)/, `-Dhost.key=${key}`)
+    ;
+  return fs.promises.writeFile(startupFile, switched).then(() => {
+    done(`Switched to ${switchTo}`);
+  });
+}).catch(fatal);
+
