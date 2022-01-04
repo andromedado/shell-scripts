@@ -12,6 +12,8 @@
 const fs = require('fs');
 const childProcess = require('child_process');
 
+const logDirFragment = '/data/logs/tomcat';
+
 const fatal = (error) => {
     console.error(error);
     process.exit(1);
@@ -35,7 +37,11 @@ const stdoutWrite = (what) => {
     process.stdout.write(`\r${what}`);
 }
 
+const [node, script, ...rawArgs] = process.argv;
+const args = rawArgs.map(arg => arg.toLowerCase());
+
 const currentDir = process.env.PWD;
+
 const pomFound = fs.existsSync(`${currentDir}/pom.xml`);
 
 if (!pomFound) {
@@ -62,6 +68,29 @@ if (tomcatRunning) {
     childProcess.execSync(`${catalinaHome}/bin/shutdown.sh`);
     childProcess.execSync(`ps -eaf | grep 'tomca[t]' | awk '{print "kill -9 " $2}' | sh`);
 }
+
+const startupFile = `${catalinaHome}/bin/startup.sh`;
+if (!args.includes('--preservelogs')) {
+    // guess log dir first 😅
+    let logDir = false;
+    if (fs.existsSync(logDirFragment)) {
+        logDir = logDirFragment;
+    } else if (process.env.HOME && fs.existsSync(`${process.env.HOME}${logDirFragment}`)) {
+        logDir = `${process.env.HOME}${logDirFragment}`;
+    } else {
+        // try something else?
+    }
+
+    if (logDir) {
+        fs.readdirSync(logDir)
+            .filter(f => !(/\.\./.test(f)))
+            .forEach(f => {
+                info(`Removing ${f}`);
+                fs.unlinkSync(`${logDir}/${f}`)
+            });
+    }
+}
+
 
 const files = fs.readdirSync(webappsDir).filter(f => !(/\.\./.test(f)));
 
@@ -138,7 +167,7 @@ buildProcess.on('exit', (code, signal) => {
     });
     
     info(`Starting tomcat`);
-    childProcess.execSync(`${catalinaHome}/bin/startup.sh`);
+    childProcess.execSync(startupFile);
     
     const serviceWar = wars.filter(war => /-[0-9]\.war$/.test(war))[0];
     
