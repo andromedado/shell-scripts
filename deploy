@@ -1,0 +1,72 @@
+#!/usr/bin/env node
+/**
+ * deploy
+ * Command line util to deploy a maven project to local tomcat
+ * Usage: `deploy` from within a maven project root
+ * Requirements:
+ *  CATALINA_HOME configured
+ *  NodeJS v14+
+ *  Maven installed
+ */
+
+const fs = require('fs');
+
+const { info, fatal, finished } = require('./lib/log');
+const { fsMustExist, stopTomcat, removeLogs, removeAllExistingDeployments, build, deploy, startTomcat } = require('./lib/exec');
+const { STYLES, determineStyle } = require('./lib/deployStyles');
+
+const catalinaHome = process.env.CATALINA_HOME;
+if (!catalinaHome) {
+    fatal('CATALINA_HOME undefined');
+}
+
+const [node, script, ...rawArgs] = process.argv;
+const args = rawArgs.map(arg => arg.toLowerCase());
+const currentDir = process.env.PWD;
+
+const startupFile = `${catalinaHome}/bin/startup.sh`;
+const webappsDir = `${catalinaHome}/webapps`;
+const targetDir = `${currentDir}/target`;
+const pomPath = `${currentDir}/pom.xml`;
+
+fsMustExist(pomPath, 'No pom found');
+
+const STYLE = determineStyle(pomPath, args);
+switch (STYLE.name) {
+    case STYLES.DEPLOYABLE.name:
+        stopTomcat(catalinaHome);
+        if (!args.includes('--preservelogs')) {
+            removeLogs();
+        }
+        
+        if (args.includes('--justthis')) {
+            removeAllExistingDeployments(webappsDir);
+        }
+        const fin = () => {
+            deploy(webappsDir, targetDir);
+            if (!args.includes('--nostart')) {
+                startTomcat(startupFile, targetDir, () => {
+                    finished('DONE');
+                });
+            } else {
+                finished('DONE');
+            }
+        };
+        if (args.includes('--nobuild')) {
+            fin()
+        } else {
+            info(STYLE.commandHeader);
+            build(STYLE.command, fin);
+        }
+        break;
+    case STYLES.BUILDABLE.name:
+        info(STYLE.commandHeader);
+        build(STYLE.command, () => {
+            finished('DONE');
+        });
+        break;
+    default:
+        fatal(`idk what to do for ${STYLE.name}`);
+}
+
+
