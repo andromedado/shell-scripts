@@ -47,7 +47,10 @@ const [node, script, switchTo] = process.argv;
 const special = {
   qa: {ENV: 'qabe01', KEY: 'qa'},
   mario: {ENV: 'uat_buyer', KEY: 'mario'},
-  luigi: {ENV: 'uat_buyer', KEY: 'luigi'}
+  luigi: {ENV: 'uat_buyer', KEY: 'luigi'},
+  ladmin: {ENV: 'live_admin', KEY: 'luigi'},
+  lbuyer: {ENV: 'live_buyer', KEY: 'luigi'},
+  lcron: {ENV: 'live_cron', KEY: 'luigi'}
 };
 
 fs.promises.readFile(startupFile, {encoding: 'utf8'}).then(startup => {

@@ -12,7 +12,7 @@
 const fs = require('fs');
 
 const { info, fatal, finished } = require('./lib/log');
-const { fsMustExist, stopTomcat, removeLogs, removeAllExistingDeployments, build, deploy, startTomcat } = require('./lib/exec');
+const { fsMustExist, ensureOff, removeLogs, removeAllExistingDeployments, build, deploy, startTomcat } = require('./lib/exec');
 const { STYLES, determineStyle } = require('./lib/deployStyles');
 
 const catalinaHome = process.env.CATALINA_HOME;
@@ -34,7 +34,7 @@ fsMustExist(pomPath, 'No pom found');
 const STYLE = determineStyle(pomPath, args);
 switch (STYLE.name) {
     case STYLES.DEPLOYABLE.name:
-        stopTomcat(catalinaHome);
+        ensureOff('Tomcat', 'tomca[t]', `${catalinaHome}/bin/shutdown.sh`);
         if (!args.includes('--preservelogs')) {
             removeLogs();
         }

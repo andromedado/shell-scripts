@@ -116,7 +116,7 @@ filesToDelete.forEach(f => {
 });
 dirsToDelete.forEach(dir => {
     info(`Removing ${dir}`);
-    fs.rmdirSync(`${webappsDir}/${dir}`, {recursive: true});
+    fs.rmSync(`${webappsDir}/${dir}`, {recursive: true});
 });
 
 info('Building war');
