@@ -1,0 +1,58 @@
+#!/bin/bash
+
+REST_PORT="8080"
+
+CUR_DIR=$(pwd -P)
+PARENT_DIR=$(dirname "${CUR_DIR}")
+
+KARATE_POM="${PARENT_DIR}/be-shared/karate-test/pom.xml"
+if [ ! -f "${KARATE_POM}" ]; then
+  echo "No Karate pom found at: ${KARATE_POM}";
+  exit 1;
+fi
+
+POM="${CUR_DIR}/pom.xml"
+if [ ! -f "${POM}" ]; then
+  echo "No pom found at: ${POM}";
+  exit 1;
+fi
+
+TEST_DIR=$(find "${CUR_DIR}" -type d -name integration -print -quit)
+
+if [ ! -d "${TEST_DIR}" ]; then
+  echo "Unable to find integration test directory"
+  echo "Searched for 'integration' inside ${CUR_DIR}"
+  exit 1;
+fi
+
+WAR=$(grep 'finalName' "${POM}" | sed -e 's/.*finalName>\(.*\)<.*/\1/')
+echo "Using war: ${WAR}"
+
+HEALTH_URL="http://127.0.0.1:${REST_PORT}/${WAR}/1/health.json";
+echo "Checking service is up via: ${HEALTH_URL}"
+HEALTH_MESSAGE=$(curl -s "${HEALTH_URL}" | jq -r '.message')
+if [ "${HEALTH_MESSAGE}" != "OK" ]; then
+  echo "Tried to get health from: ${HEALTH_URL}";
+  echo "Health not ok: ${HEALTH_MESSAGE}";
+  exit 1;
+fi
+
+APPLICATION_URL="http://127.0.0.1:${REST_PORT}/${WAR}/1/thisApplication.json?userToken=${USER_TOKEN}"
+echo "Looking up GRPC port via: ${APPLICATION_URL}"
+GRPC_PORT=$(curl -s "${APPLICATION_URL}" | jq -r '.result.grpcPort')
+echo "Using grpcPort: ${GRPC_PORT}"
+
+mvn clean test -f "${KARATE_POM}" \
+-DfeatureFilesBaseDir="${TEST_DIR}" \
+-Dhost=localhost \
+-DrestPort=${REST_PORT} \
+-DgrpcPort=${GRPC_PORT} \
+-DwarFileName="${WAR}" \
+-DtestEnvRestHost=qa.intranet.1stdibs.com \
+-DtestEnvGrpcHost=qabe01.intranet.1stdibs.com \
+-DipForHelperCallback=172.20.253.170 \
+-DrestPortForHelperCallback=${REST_PORT} \
+-DgRPCPortForHelperCallback=${GRPC_PORT} \
+-DhelperEnv=qa \
+-Dsurefire.failIfNoSpecifiedTests=false \
+-DparallelThreads=10
