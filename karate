@@ -1,0 +1,90 @@
+#!/bin/bash
+
+REST_PORT=8080
+GRPC_PORT=50008 # fallback
+
+CUR_DIR=$(pwd -P);
+
+if [ ! -f "${CUR_DIR}/pom.xml" ]; then
+  echo "No pom found in ${CUR_DIR}";
+  exit 1;
+fi
+
+WARS=$(find ./target -type f -name "*.war")
+
+# Count the number of .war files found
+NUM_WARS=$(echo "$WARS" | wc -l)
+
+if [ "$NUM_WARS" -eq 0 ]; then
+    echo "No .war files found in ./target"
+    exit 1
+elif [ "$NUM_WARS" -gt 1 ]; then
+    echo "Error: Multiple .war files found in ./target"
+    echo "${WARS}"
+    exit 2
+fi
+
+WAR=$(basename "$WARS" .war)
+
+URL="http://localhost:${REST_PORT}/${WAR}/1/health.json"
+
+echo "Checking service health: ${URL}"
+STATUS_CODE=$(curl -o /dev/null -w "%{http_code}" -I -L "$URL");
+
+if [ "$STATUS_CODE" -ne "200" ]; then
+  echo "${STATUS_CODE} returned from ${URL}"
+  exit 3
+fi
+
+if command -v "jq" &> /dev/null; then
+  APP_URL="http://localhost:${REST_PORT}/${WAR}/1/thisApplication.json?userToken=0_vadim"
+  echo "Checking for GRPC Port: curl '${APP_URL}'"
+  DECLARED_PORT=$(curl "$APP_URL" | jq '.result.grpcPort' | sed -e 's/"//g')
+  if [ ! -z $DECLARED_PORT ]; then
+    GRPC_PORT=$DECLARED_PORT
+  fi
+fi
+echo "Using GRPC Port: ${GRPC_PORT}"
+
+fullCommand="$(cat <<EOF
+mvn clean test \\
+ -f ../be-shared/karate-test/pom.xml \\
+ -DfeatureFilesBaseDir="${CUR_DIR}" \\
+ -Dhost=localhost \\
+ -DrestPort=${REST_PORT} \\
+ -DgrpcPort=${GRPC_PORT} \\
+ -DwarFileName=${WAR} \\
+ -DtestEnvRestHost=localhost \\
+ -DtestEnvGrpcHost=localhost \\
+ -Dsurefire.failIfNoSpecifiedTests=false \\
+ -Dkarate.options=${CUR_DIR}/src/test/java/integration/asyncCheckout/checkoutSubmissionProviderArguments.feature \\
+ -DhelperEnv=qa \\
+ -DparallelThreads=1 \\
+ -Dtest=KarateTest
+EOF
+)"
+
+echo -e "Full command:\n${fullCommand}"
+
+echo -e "\nDo you want to execute this command? (y/n): "
+read -r response
+
+if [[ "$response" =~ ^[Yy](es)?$ ]]; then
+    echo "Executing command..."
+    eval "$fullCommand"
+else
+    echo "Command execution cancelled."
+    exit 0
+fi
+
+# mvn clean test \
+#  -f ~/projects/be-shared/karate-test/pom.xml \
+#  -DfeatureFilesBaseDir="${CUR_DIR}" \
+#  -Dhost=localhost \
+#  -DrestPort=${REST_PORT} \
+#  -DgrpcPort=${GRPC_PORT} \
+#  -DwarFileName=${WAR} \
+#  -DtestEnvRestHost=qabe-rest.qa.1stdibs.com \
+#  -DtestEnvGrpcHost=qabe-grpc.qa.1stdibs.com \
+#  -Dsurefire.failIfNoSpecifiedTests=false \
+#  -DparallelThreads=10
