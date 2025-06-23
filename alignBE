@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Check if pom.xml exists in current directory
+if [ ! -f "pom.xml" ]; then
+    echo "pom.xml not found in current directory"
+    exit 1
+fi
+
+# Check if be-shared is a sibling directory
+if [ ! -d "../be-shared" ]; then
+    echo "be-shared is not a sibling directory"
+    exit 1
+fi
+
+# Extract version from parent tag in pom.xml
+VERSION=$(grep -A 10 '<parent>' pom.xml | grep -o '<version>[^<]*</version>' | head -1 | sed 's/<version>\(.*\)<\/version>/\1/')
+
+if [ -z "$VERSION" ]; then
+    echo "Could not extract version from parent tag in pom.xml"
+    exit 1
+fi
+
+echo "Extracted version from parent: $VERSION"
+
+# Check if be-shared git repository is clean
+cd ../be-shared
+
+if [ -n "$(git status --porcelain)" ]; then
+    echo "be-shared git repository is dirty (has uncommitted changes)"
+    exit 1
+fi
+
+git fetch
+
+# Check if the tag exists in the git repository
+if ! git tag -l "$VERSION" | grep -q "^$VERSION$"; then
+    echo "Tag $VERSION does not exist in be-shared git repository"
+    exit 1
+fi
+
+read -p "Checkout be-shared $VERSION ? (y/n): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Operation cancelled by user"
+    exit 1
+fi
+
+git checkout $VERSION
+
+cd - > /dev/null
+
+echo "Checked out be-shared $VERSION"
+
+
+
