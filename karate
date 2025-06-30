@@ -1,5 +1,42 @@
 #!/bin/bash
 
+# Parse command line arguments
+feature_file=""
+skip_confirmation=false
+all_features=false
+
+# Parse all arguments to allow flags in any order
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -f)
+            if [[ -n "$2" && "$2" != -* ]]; then
+                feature_file="$2"
+                shift 2
+            else
+                echo "Error: -f flag requires a feature file name"
+                exit 1
+            fi
+            ;;
+        -y)
+            skip_confirmation=true
+            shift
+            ;;
+        -a)
+            all_features=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [-f feature_file] [-y]"
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$all_features" = true ]; then
+    feature_file=""
+fi
+
 REST_PORT=8080
 GRPC_PORT=50008 # fallback
 
@@ -57,17 +94,42 @@ mvn clean test \\
  -DtestEnvRestHost=localhost \\
  -DtestEnvGrpcHost=localhost \\
  -Dsurefire.failIfNoSpecifiedTests=false \\
- -Dkarate.options=${CUR_DIR}/src/test/java/integration/asyncCheckout/checkoutSubmissionProviderArguments.feature \\
  -DhelperEnv=qa \\
  -DparallelThreads=1 \\
  -Dtest=KarateTest
 EOF
 )"
 
+# -Dkarate.options=${CUR_DIR}/src/test/java/integration/asyncCheckout/checkoutSubmissionProviderArguments.feature \\
+
+# Check if feature file was provided via command line
+if [ "$all_features" = false ] && [ -z "$feature_file" ]; then
+  echo -n "Enter specific feature file name (or press Enter to run all): "
+  read -r feature_file
+fi
+
+if [ ! -z "$feature_file" ]; then
+  # Find the feature file within CUR_DIR
+  found_file=$(find "${CUR_DIR}" -name "$feature_file" -type f 2>/dev/null | head -1)
+  
+  if [ -z "$found_file" ]; then
+      echo "Error: Feature file '$feature_file' not found in ${CUR_DIR}"
+      exit 1
+  fi
+  
+  echo "Found feature file: $found_file"
+  fullCommand="${fullCommand} -Dkarate.options=${found_file}"
+fi
+
+
 echo -e "Full command:\n${fullCommand}"
 
-echo -e "\nDo you want to execute this command? (y/n): "
-read -r response
+if [[ "$skip_confirmation" != true ]]; then
+    echo -e "\nDo you want to execute this command? (y/n): "
+    read -r response
+else
+    response="yes"
+fi
 
 if [[ "$response" =~ ^[Yy](es)?$ ]]; then
     echo "Executing command..."

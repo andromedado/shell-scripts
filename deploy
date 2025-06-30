@@ -24,7 +24,29 @@ const [node, script, ...rawArgs] = process.argv;
 const args = rawArgs.map(arg => arg.toLowerCase());
 const currentDir = process.env.PWD;
 
-const startupFile = `${catalinaHome}/bin/startup.sh`;
+let startupFile;
+
+const { execSync } = require('child_process');
+
+function checkStartTomcatCommand() {
+    try {
+        execSync('which starttomcat', { stdio: 'pipe' });
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+const hasStartTomcatCommand = checkStartTomcatCommand();
+if (hasStartTomcatCommand) {
+    info('starttomcat command is available');
+    startupFile = 'starttomcat';
+} else {
+    info('starttomcat command is not available');
+    startupFile = `${catalinaHome}/bin/startup.sh`;
+}
+
+
 const webappsDir = `${catalinaHome}/webapps`;
 const targetDir = `${currentDir}/target`;
 const pomPath = `${currentDir}/pom.xml`;

@@ -11,7 +11,7 @@ public class ThreadCreationMonitor {
     )
     public static void onNewThreadEntry2() {
         println(">>> DefaultThreadFactory.newThread() called!");
-        jstack();
+        jstack(15);
         println("-------------------------------------");
     }
 
@@ -23,7 +23,7 @@ public class ThreadCreationMonitor {
     )
     public static void onRun() {
         println("HealthcheckController.run() called!");
-        jstack();
+        jstack(15);
         println("-------------------------------------");
     }
 
@@ -38,7 +38,7 @@ public class ThreadCreationMonitor {
     )
     public static void onAddWorker(@ProbeClassName String pcn, @ProbeMethodName String pmn) {
         println(">>> ThreadPoolExecutor.addWorker() called!");
-        jstack();
+        jstack(15);
         println("-------------------------------------");
     }
 
@@ -47,24 +47,35 @@ public class ThreadCreationMonitor {
     // They are less likely to work if they didn't before.
 
     // @OnMethod(
-    //     clazz = "java.lang.Thread",
+    //     clazz = "com.dibs.ecom.data.DomainTransaction",
     //     method = "<init>",
     //     location = @Location(Kind.ENTRY)
     // )
-    // public static void onThreadConstructed(@ProbeClassName String pcn, @ProbeMethodName String pmn) {
-    //     println(">>> NEW THREAD CONSTRUCTED! " + pcn + "." + pmn + "()");
+    // public static void domainTransactionInit() {
+    //     println(">>> NEW DomainTransaction CONSTRUCTED!");
     //     jstack();
     //     println("-------------------------------------");
     // }
 
-    // @OnMethod(
-    //     clazz = "java.lang.Thread",
-    //     method = "start",
-    //     location = @Location(Kind.ENTRY)
-    // )
-    // public static void onThreadStart(@Self Thread self, @ProbeClassName String pcn, @ProbeMethodName String pmn) {
-    //     println(">>> THREAD STARTED! ");
-    //     jstack();
-    //     println("-------------------------------------");
-    // }
+    @OnMethod(
+        clazz = "java.lang.Thread",
+        method = "<init>",
+        location = @Location(Kind.ENTRY)
+    )
+    public static void onThreadCreate() {
+        println(">>> THREAD Created! ");
+        jstack(15);
+        println("-------------------------------------");
+    }
+
+    @OnMethod(
+        clazz = "com.dibs.service.common.threads.DibsThreadFactory",
+        method = "newThread",
+        location = @Location(Kind.ENTRY)
+    )
+    public static void onDibsThreadFactoryNewThread() {
+        println(">>> DibsThreadFactory.newThread() called!");
+        jstack(15);
+        println("-------------------------------------");
+    }
 }
