@@ -86,7 +86,7 @@ echo "Using GRPC Port: ${GRPC_PORT}"
 fullCommand="$(cat <<EOF
 mvn clean test \\
  -f ../be-shared/karate-test/pom.xml \\
- -DfeatureFilesBaseDir="${CUR_DIR}" \\
+ -DfeatureFilesBaseDir="${CUR_DIR}/src" \\
  -Dhost=localhost \\
  -DrestPort=${REST_PORT} \\
  -DgrpcPort=${GRPC_PORT} \\
@@ -110,7 +110,7 @@ fi
 
 if [ ! -z "$feature_file" ]; then
   # Find the feature file within CUR_DIR
-  found_file=$(find "${CUR_DIR}" -name "$feature_file" -type f 2>/dev/null | head -1)
+  found_file=$(find "${CUR_DIR}" -name "${feature_file}*" -type f 2>/dev/null | head -1)
   
   if [ -z "$found_file" ]; then
       echo "Error: Feature file '$feature_file' not found in ${CUR_DIR}"
