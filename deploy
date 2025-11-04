@@ -12,7 +12,11 @@
 const fs = require('fs');
 
 const { info, fatal, finished } = require('./lib/log');
-const { fsMustExist, ensureOff, removeLogs, removeAllExistingDeployments, build, deploy, startTomcat } = require('./lib/exec');
+const {
+    fsMustExist, ensureOff, removeLogs,
+    removeAllExistingDeployments, build,
+    deploy, startTomcat, checkJavaTarget
+} = require('./lib/exec');
 const { STYLES, determineStyle } = require('./lib/deployStyles');
 
 const catalinaHome = process.env.CATALINA_HOME;
@@ -53,7 +57,11 @@ const pomPath = `${currentDir}/pom.xml`;
 
 fsMustExist(pomPath, 'No pom found');
 
-const STYLE = determineStyle(pomPath, args);
+const pomContents = fs.readFileSync(pomPath, {encoding: 'utf-8'});
+
+checkJavaTarget(pomContents);
+
+const STYLE = determineStyle(pomContents, args);
 switch (STYLE.name) {
     case STYLES.DEPLOYABLE.name:
         ensureOff('Tomcat', 'tomca[t]', `${catalinaHome}/bin/shutdown.sh`);

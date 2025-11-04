@@ -91,8 +91,8 @@ mvn clean test \\
  -DrestPort=${REST_PORT} \\
  -DgrpcPort=${GRPC_PORT} \\
  -DwarFileName=${WAR} \\
- -DtestEnvRestHost=localhost \\
- -DtestEnvGrpcHost=localhost \\
+ -DtestEnvRestHost=qabe-rest.qa.1stdibs.com \\
+ -DtestEnvGrpcHost=qabe-grpc.qa.1stdibs.com \\
  -Dsurefire.failIfNoSpecifiedTests=false \\
  -DhelperEnv=qa \\
  -DparallelThreads=1 \\
