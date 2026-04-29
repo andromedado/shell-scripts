@@ -95,7 +95,7 @@ mvn clean test \\
  -DtestEnvGrpcHost=qabe-grpc.qa.1stdibs.com \\
  -Dsurefire.failIfNoSpecifiedTests=false \\
  -DhelperEnv=qa \\
- -DparallelThreads=1 \\
+ -DparallelThreads=5 \\
  -Dtest=KarateTest
 EOF
 )"

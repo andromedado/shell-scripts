@@ -1,0 +1,96 @@
+#!/usr/bin/env node
+/**
+ * localBE
+ * Points the current Tomcat-deployable project at locally-built be-shared snapshots.
+ * Usage: `localBE` from within a maven project root that has be-shared as a sibling directory.
+ * Effect: sets papa-app parent version to the released base version of be-shared, and injects
+ * <properties> overrides for each be-shared submodule that has a SNAPSHOT version.
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+const { fatal, info, finished } = require('./lib/log');
+
+function stripParentBlock(xml) {
+    return xml.replace(/<parent>[\s\S]*?<\/parent>/, '');
+}
+
+function extractVersion(xml) {
+    const m = stripParentBlock(xml).match(/<version>([^<]+)<\/version>/);
+    return m ? m[1].trim() : null;
+}
+
+function extractArtifactId(xml) {
+    const m = stripParentBlock(xml).match(/<artifactId>([^<]+)<\/artifactId>/);
+    return m ? m[1].trim() : null;
+}
+
+const cwd = process.env.PWD || process.cwd();
+const pomPath = path.join(cwd, 'pom.xml');
+const beSharedDir = path.resolve(cwd, '../be-shared');
+
+if (!fs.existsSync(pomPath)) fatal('pom.xml not found in current directory');
+if (!fs.existsSync(beSharedDir)) fatal('be-shared is not a sibling directory');
+
+const beSharedPom = fs.readFileSync(path.join(beSharedDir, 'pom.xml'), 'utf-8');
+const beSharedVersion = extractVersion(beSharedPom);
+if (!beSharedVersion) fatal('Could not extract version from be-shared/pom.xml');
+
+const baseVersion = (beSharedVersion.match(/^(\d+\.\d+\.\d+)/) ?? fatal(`be-shared version has no semver prefix: ${beSharedVersion}`))[1];
+info(`be-shared version: ${beSharedVersion}`);
+
+const IGNORED = new Set(['papa-lib', 'papa-lambda']);
+const moduleNames = [...beSharedPom.matchAll(/<module>([^<]+)<\/module>/g)]
+    .map(m => m[1].trim())
+    .filter(m => !IGNORED.has(m));
+
+const snapshotModules = [];
+for (const mod of moduleNames) {
+    const modPomPath = path.join(beSharedDir, mod, 'pom.xml');
+    if (!fs.existsSync(modPomPath)) continue;
+    const modPom = fs.readFileSync(modPomPath, 'utf-8');
+    const explicitVersion = extractVersion(modPom);
+    const version = explicitVersion ?? beSharedVersion;
+    if (!version.endsWith('-SNAPSHOT')) continue;
+    const artifactId = extractArtifactId(modPom);
+    if (artifactId) snapshotModules.push({ artifactId, version });
+}
+
+if (!snapshotModules.length) {
+    fatal('No snapshot submodules found in be-shared (excluding papa-lib, papa-lambda)');
+}
+
+let pom = fs.readFileSync(pomPath, 'utf-8');
+
+// Update papa-app parent version to the non-snapshot base version
+const parentBlock = pom.match(/<parent>[\s\S]*?<\/parent>/)?.[0];
+if (!parentBlock) fatal('No <parent> block found in current pom.xml');
+if (!parentBlock.includes('<artifactId>papa-app</artifactId>')) {
+    fatal('Current project parent is not papa-app');
+}
+const newParentBlock = parentBlock.replace(/<version>[^<]*<\/version>/, `<version>${baseVersion}</version>`);
+pom = pom.replace(parentBlock, newParentBlock);
+
+// Build the property lines to inject
+const propLines = snapshotModules
+    .map(({ artifactId, version }) => `        <${artifactId}.version>${version}</${artifactId}.version>`)
+    .join('\n');
+
+// Remove any pre-existing entries for these modules to avoid duplicates
+for (const { artifactId } of snapshotModules) {
+    const escaped = artifactId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    pom = pom.replace(new RegExp(`[ \t]*<${escaped}\\.version>[^<]*</${escaped}\\.version>\n?`, 'g'), '');
+}
+
+if (/<properties>/.test(pom)) {
+    pom = pom.replace('<properties>', `<properties>\n${propLines}`);
+} else {
+    pom = pom.replace('</parent>', `</parent>\n\n    <properties>\n${propLines}\n    </properties>`);
+}
+
+fs.writeFileSync(pomPath, pom);
+
+info(`papa-app → ${baseVersion}`);
+snapshotModules.forEach(({ artifactId, version }) => info(`  ${artifactId}.version = ${version}`));
+finished('pom.xml updated');

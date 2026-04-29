@@ -71,6 +71,8 @@ fs.promises.readFile(startupFile, {encoding: 'utf8'}).then(startup => {
   if (special[switchTo]) {
     key = special[switchTo].KEY;
     env = special[switchTo].ENV;
+  } else if (/ts\d+/.test(switchTo)) {
+    env = 'ts';
   }
   const switched = startup
     .replace(/TOMCAT_KEY=.*/g, `TOMCAT_KEY=${key}`)
