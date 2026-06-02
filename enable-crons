@@ -1,0 +1,14 @@
+#!/bin/bash
+
+if [ -z "$USER_TOKEN" ]; then
+    echo "USER_TOKEN is not set" >&2
+    exit 1
+fi
+
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+while IFS= read -r war; do
+    echo "Enabling crons for: $war"
+    curl -XPOST "http://127.0.0.1:8080/${war}/2/cronJobs/enable?userToken=${USER_TOKEN}"
+    echo
+done < <("$script_dir/deployed-wars")

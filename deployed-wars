@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ -z "$CATALINA_HOME" ]; then
+    echo "CATALINA_HOME is not set" >&2
+    exit 1
+fi
+
+webapps="$CATALINA_HOME/webapps"
+
+if [ ! -d "$webapps" ]; then
+    echo "Webapps directory not found: $webapps" >&2
+    exit 1
+fi
+
+find "$webapps" -maxdepth 1 -name "*.war" -exec basename {} .war \;
