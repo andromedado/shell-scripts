@@ -1,0 +1,1 @@
+/Users/shad/.claude/skills/mysql-style/SKILL.md
