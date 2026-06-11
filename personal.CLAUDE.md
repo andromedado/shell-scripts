@@ -1,0 +1,1 @@
+/Users/shad/CLAUDE.md
