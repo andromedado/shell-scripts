@@ -1,0 +1,81 @@
+#!/usr/bin/env node
+
+// Fetch Jira issues assigned to you in "In Review" status, sorted by actual assignment date.
+// Requires: JIRA_API_TOKEN env var (generate at https://id.atlassian.com/manage-profile/security/api-tokens)
+
+const BASE_URL = 'https://1stdibs.atlassian.net';
+
+const required = { JIRA_ACCOUNT_ID: null, JIRA_DISPLAY_NAME: null, JIRA_EMAIL: null, JIRA_API_TOKEN: null };
+for (const key of Object.keys(required)) {
+  if (!process.env[key]) {
+    console.error(`${key} is not set`);
+    process.exit(1);
+  }
+  required[key] = process.env[key];
+}
+
+const { JIRA_ACCOUNT_ID: ACCOUNT_ID, JIRA_DISPLAY_NAME: DISPLAY_NAME, JIRA_EMAIL: EMAIL, JIRA_API_TOKEN: token } = required;
+
+const auth = Buffer.from(`${EMAIL}:${token}`).toString('base64');
+
+async function jiraFetch(path, params = {}) {
+  const url = new URL(`${BASE_URL}/rest/api/3${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const res = await fetch(url, {
+    headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`Jira ${res.status} on ${path}: ${await res.text()}`);
+  return res.json();
+}
+
+async function main() {
+  const jql = `assignee = "${ACCOUNT_ID}" AND status = "In Review" ORDER BY created ASC`;
+  const search = await jiraFetch('/search/jql', {
+    jql,
+    fields: 'summary,status,assignee,created',
+    maxResults: 100,
+  });
+
+  if (!search.issues?.length) {
+    console.log('No issues in "In Review" status.');
+    return;
+  }
+
+  const details = await Promise.all(
+    search.issues.map(issue => jiraFetch(`/issue/${issue.key}`, { expand: 'changelog' }))
+  );
+
+  const rows = search.issues.map((issue, idx) => {
+    const histories = details[idx].changelog?.histories ?? [];
+    const assignmentDates = histories
+      .filter(h => h.items.some(i => i.field === 'assignee' && i.toString === DISPLAY_NAME))
+      .map(h => h.created);
+    const assignedAt = assignmentDates.length
+      ? assignmentDates.sort().at(-1)
+      : issue.fields.created;
+    return { key: issue.key, summary: issue.fields.summary, assignedAt };
+  });
+
+  rows.sort((a, b) => a.assignedAt.localeCompare(b.assignedAt));
+
+  const rowConfig = [
+    ['#',               (row, i) => i + 1],
+    ['Assigned to You', (row)    => row.assignedAt.replace('T', ' ').slice(0, 16)],
+    ['Issue',           (row)    => `[${row.key}](${BASE_URL}/browse/${row.key})`],
+    ['Summary',         (row)    => row.summary],
+  ];
+
+  const header    = `| ${rowConfig.map(([col])    => col).join(' | ')} |`;
+  const separator = `| ${rowConfig.map(([col])    => '-'.repeat(col.length)).join(' | ')} |`;
+  console.log(header);
+  console.log(separator);
+  rows.forEach((row, i) => {
+    const cols = rowConfig.map(([, fn]) => fn(row, i));
+    console.log(`| ${cols.join(' | ')} |`);
+  });
+}
+
+main().catch(err => {
+  console.error(err.message);
+  process.exit(1);
+});
