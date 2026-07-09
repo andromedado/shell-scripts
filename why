@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Find occurrences of a string in the current repo (cwd and below) and show
+# the commit that last touched each matching line.
+# Precipitating prompt:
+# write a shell script named "why" - it confirms that it's being executed from within a git repo, and then it finds occurrences of the string in the current repo and below (recursively). If more than ten references found, error out with 'too noisy'. Otherwise, it should present each occrrence and the git commit that last touched it
+# Usage: why <string>
+
+if [[ -z "$1" ]]; then
+  echo "usage: why <string>" >&2
+  exit 1
+fi
+
+SEARCH="$1"
+
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+  echo "error: not inside a git repo" >&2
+  exit 1
+}
+
+matches=()
+while IFS= read -r line; do
+  matches+=("$line")
+done < <(git grep -n --no-color -I -- "$SEARCH" 2>/dev/null)
+
+if [[ ${#matches[@]} -gt 10 ]]; then
+  echo "too noisy" >&2
+  exit 1
+fi
+
+if [[ ${#matches[@]} -eq 0 ]]; then
+  echo "no occurrences of '$SEARCH' found"
+  exit 0
+fi
+
+for match in "${matches[@]}"; do
+  file="${match%%:*}"
+  rest="${match#*:}"
+  linenum="${rest%%:*}"
+  content="${rest#*:}"
+
+  commit=$(git blame -L "${linenum},${linenum}" --porcelain -- "$file" 2>/dev/null | head -1 | awk '{print $1}')
+  commit_info=$(git log -1 --format='%h  %an  %ad  %s' --date=short "$commit" 2>/dev/null)
+
+  printf '%s:%s:%s\n' "$file" "$linenum" "$content"
+  printf '    %s\n\n' "${commit_info:-(unknown)}"
+done
