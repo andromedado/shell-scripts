@@ -14,6 +14,7 @@ description: Style guide for writing MySQL queries and expressions. Use when wri
 
 ## Delivering Results
 
+Prefer all-uppercase for MySQL keywords / types. (INSERT AND BIGINT vs insert and bigint)
 If iterating on multiple queries, as final output include the full updated queries.
 When you have arrived at a final query or expression, include it in the chat output as a fenced SQL code block.
 And then also past the final query into a timestamped file in `/privat/tmp/`
@@ -49,3 +50,8 @@ SELECT t.id, t.col
 FROM schema_name.table_name AS t
 WHERE t.status = 'active';
 ```
+
+## DDL Drafting
+
+1stdibs convention is to avoid hard foreign key constraints. These are expected to be managed by the application.
+

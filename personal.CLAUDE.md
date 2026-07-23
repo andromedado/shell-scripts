@@ -4,4 +4,5 @@ Ask before searching be-shared from other projects - you will be tempted to scan
 The ~/project sub-directory names should match the github repo names
 Avoid querying ~/.m2 - only after exhausting be-shared should this be checked
 When asked to provide/create a csv, actually create a ".csv" file in /tmp
-Never try to grep within the top level directory "~/projects" only ever grep within a specific sub-folder.
+Never try to grep/act within the top level directory "~/projects" only ever grep/act within a specific sub-folder.
+Prefer shell command `fd` over `find`

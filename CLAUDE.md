@@ -22,6 +22,7 @@ Prefer Bash for new utilities. Use Node.js when the logic is complex enough to b
 | `senv` | Node.js | Switch Tomcat's Consul environment config (qa, mario, luigi, ladmin, etc.) |
 | `alignBE` | Bash | Validate/align backend-shared dependency versions between pom.xml and git tags |
 | `stale-branches.sh` | Bash | List remote git branches with no commits in the past N days (default 180) |
+| `jira-todos` | Node.js | List Jira issues assigned to you in "In Review" status, sorted by actual assignment date; requires `JIRA_API_TOKEN` env var |
 
 ## Shared Node.js Libraries (`lib/`)
 
