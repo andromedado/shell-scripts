@@ -15,9 +15,12 @@ const { info, fatal, finished } = require('./lib/log');
 const {
     fsMustExist, ensureOff, removeLogs,
     removeAllExistingDeployments, build,
-    deploy, startTomcat, checkJavaTarget
+    deploy, startTomcat, checkJavaTarget,
+    checkNexusConnectivity
 } = require('./lib/exec');
 const { STYLES, determineStyle } = require('./lib/deployStyles');
+
+checkNexusConnectivity('dibsnexuspro.utils.1stdibs.com');
 
 const catalinaHome = process.env.CATALINA_HOME;
 if (!catalinaHome) {
