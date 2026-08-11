@@ -9,7 +9,7 @@ description: Style guide for writing MySQL queries and expressions. Use when wri
 - Always alias every table, even when working with a single table (e.g. `FROM schema_name.table_name AS ta`)
 - Never reference columns that don't exist: only reference columns you know exist.
 - For non-temporary tables, the presumption is that adding indexes would require a release cycle
-- Ignore cosmetic choices like `WHERE 1\nAND`
+- Ignore cosmetic choices like `WHERE 1\nAND` or semicolon placement
 - For first-pass review/suggestions, do not suggest adding indexes to non-temporary tables. If the context is not ad-hoc, ask at the end if the user wants to consider adding indexes
 
 ## Delivering Results
