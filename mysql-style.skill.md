@@ -16,9 +16,10 @@ description: Style guide for writing MySQL queries and expressions. Use when wri
 
 Prefer all-uppercase for MySQL keywords / types. (INSERT AND BIGINT vs insert and bigint)
 If iterating on multiple queries, as final output include the full updated queries.
-When you have arrived at a final query or expression, include it in the chat output as a fenced SQL code block.
-And then also paste the final query into a timestamped file in `/privat/tmp/`
-Then drop a 'link' in the output: e.g. `file:///private/tmp/1780330805.sql`
+When you have arrived at a final query or expression:
+1. Include it in the chat output as a fenced SQL code block.
+2. Use the Write tool to save it to `/private/tmp/<timestamp>.sql` (e.g., `/private/tmp/1780330805.sql`)
+3. Link to the saved file in your output.
 
 ## Joining Tables
 
