@@ -20,6 +20,7 @@ When you have arrived at a final query or expression:
 1. Include it in the chat output as a fenced SQL code block.
 2. Use the Write tool to save it to `/private/tmp/<timestamp>.sql` (e.g., `/private/tmp/1780330805.sql`)
 3. Link to the saved file in your output using the syntax: `file:///private/tmp...`
+4. Do not re-use timestamps. Generate a fresh timestamp for every write invocation.
 
 ## Joining Tables
 
