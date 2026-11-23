@@ -174,7 +174,7 @@ buildProcess.on('exit', (code, signal) => {
     if (serviceWar) {
         const warName = serviceWar.split('.war')[0];
         setTimeout(() => {
-            childProcess.execSync(`open 'http://127.0.0.1:8080/${warName}/1/health.json'`);
+            childProcess.execSync(`open 'http://127.0.0.1:8080/${warName}/1/thisApplication.json?apiToken=localDevelopment_tokenTokenToken'`);
             finished('DONE');
         }, 1000);
     } else {
